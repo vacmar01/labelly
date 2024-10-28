@@ -1,0 +1,1 @@
+MOCK SAMPLE DATA - Brain MRI with contrast: Symmetric T2/FLAIR hyperintensity in bilateral medial temporal lobes. No restricted diffusion or enhancement. No mass effect. Ventricles normal in size. No other parenchymal abnormalities. IMPRESSION: Bilateral medial temporal lobe signal abnormality, consider limbic encephalitis in appropriate clinical setting.

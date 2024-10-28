@@ -1,0 +1,13 @@
+file,label,value
+file_6.txt,Examination,Abnormal
+file_6.txt,Bleeding,
+file_6.txt,MassEffect,
+file_4.txt,Bleeding,Mild
+file_5.txt,MassEffect,
+file_5.txt,Bleeding,Mild
+file_5.txt,Examination,Abnormal
+file_7.txt,Examination,Normal
+file_7.txt,Bleeding,
+file_7.txt,MassEffect,Moderate
+file_4.txt,Examination,Normal
+file_4.txt,MassEffect,Severe

@@ -1,0 +1,19 @@
+{
+    "Examination": [
+        "Normal",
+        "Abnormal",
+        "Unsure"
+    ],
+    "Bleeding": [
+        "None",
+        "Mild",
+        "Moderate",
+        "Severe"
+    ],
+    "MassEffect": [
+        "None",
+        "Mild",
+        "Moderate",
+        "Severe"
+    ]
+}
