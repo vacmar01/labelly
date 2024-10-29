@@ -2,6 +2,83 @@ from fasthtml.common import *
 import os
 import json
 import pandas as pd
+import fcntl
+from contextlib import contextmanager
+
+# File handling constants
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
+ALLOWED_EXTENSIONS = ('.txt', '.md')
+
+@contextmanager
+def file_lock(filepath):
+    """Thread-safe file locking context manager"""
+    with open(filepath, 'a+') as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            yield f
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+def safe_read_file(filepath: str, max_size: int = MAX_FILE_SIZE) -> str:
+    """Safely read a file with size limits and error handling"""
+    try:
+        path = Path(filepath)
+        if path.suffix not in ALLOWED_EXTENSIONS:
+            raise ValueError(f"Invalid file type: {path.suffix}")
+        
+        if path.stat().st_size > max_size:
+            raise ValueError(f"File too large: {path.stat().st_size} bytes")
+            
+        with path.open('r', encoding='utf-8') as f:
+            return f.read()
+    except (IOError, OSError) as e:
+        trace(f"Error reading file {filepath}: {str(e)}")
+        return f"Error reading file: {str(e)}"
+    
+def validate_idx(idx: int, max_idx: int) -> int:
+    """Validate and bound check the index parameter"""
+    try:
+        idx = int(idx)
+        if idx < 0 or idx >= max_idx:
+            raise ValueError(f"Index {idx} out of bounds (0-{max_idx-1})")
+        return idx
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+def safe_load_labels(filepath: str) -> Dict:
+    """Safely load and validate labels file"""
+    try:
+        if not os.path.exists(filepath):
+            return {}
+            
+        with open(filepath, 'r') as f:
+            labels = json.load(f)
+            
+        if not isinstance(labels, dict):
+            raise ValueError("Labels must be a dictionary")
+            
+        # Validate structure
+        for key, values in labels.items():
+            if not isinstance(values, list):
+                raise ValueError(f"Values for {key} must be a list")
+                
+        return labels
+    except json.JSONDecodeError:
+        trace(f"Invalid JSON in {filepath}")
+        return {}
+    except Exception as e:
+        trace(f"Error loading labels: {str(e)}")
+        return {}
+    
+def safe_save_results(results: pd.DataFrame, filepath: str) -> bool:
+    """Thread-safe results saving"""
+    try:
+        with file_lock(filepath):
+            results.to_csv(filepath, index=False)
+        return True
+    except Exception as e:
+        trace(f"Error saving results: {str(e)}")
+        return False
 
 from lucide_fasthtml import Lucide
 
@@ -138,21 +215,36 @@ def get(idx: int):
     
 @rt("/label/{idx}/{label}")
 def post(idx: int, label: str, label_value: str):
-    global results
-    # Check if an entry with the same file and label already exists
-    existing_entry = results.loc[(results["file"] == files[idx]) & (results["label"] == label)]
-    
-    if not existing_entry.empty:
-        # Update the existing entry with the new label_value
-        results.loc[(results["file"] == files[idx]) & (results["label"] == label), "value"] = label_value
-    else:
-        # Add a new entry
-        new_row = pd.DataFrame([{"file": files[idx], "label": label, "value": label_value}])
-        results = pd.concat([results, new_row], ignore_index=True)
-    
-    # Save the results to the CSV file
-    results.to_csv("data/results.csv", index=False)
-    
-    return get_stats(idx, files, results)
+    try:
+        idx = validate_idx(idx, len(files))
+        
+        if label not in labels:
+            raise HTTPException(status_code=400, detail=f"Invalid label: {label}")
+            
+        valid_values = {v["value"] for v in labels[label]}
+        if label_value not in valid_values:
+            raise HTTPException(status_code=400, detail=f"Invalid label value: {label_value}")
+        
+        global results
+        mask = (results["file"] == files[idx]) & (results["label"] == label)
+        
+        if mask.any(): #the label already exists, update it
+            results.loc[mask, "value"] = label_value
+        else:
+            new_row = pd.DataFrame([{
+                "file": files[idx],
+                "label": label,
+                "value": label_value
+            }])
+            results = pd.concat([results, new_row], ignore_index=True)
+        
+        if not safe_save_results(results, "data/results.csv"):
+            raise HTTPException(status_code=500, detail="Failed to save results")
+            
+        return get_stats(idx, files, results)
+        
+    except Exception as e:
+        trace(f"Error in post handler: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     
 serve(port=8000, reload=False)
