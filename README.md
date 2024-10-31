@@ -46,7 +46,7 @@ The results will be written into a `data/results.csv` file.
 
 ## How to run the docker container
 
-`docker run labelly -p 8000:8000 -v $(pwd)/data:/app/data`
+`docker run -p 8000:8000 -v $(pwd)/data:/app/data labelly`
 
 Swap out `$(pwd)/data` for a proper path to your data on your local machine. The folder wild be mounted into the correct location of the docker container. 
 
