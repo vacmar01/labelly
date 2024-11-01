@@ -148,11 +148,11 @@ def get(idx: int):
             text = f.read()
     else: 
         return (
-             Div(cls="h-screen w-screen flex flex-col justify-center items-center", hx_boost="true")(
+             Div(cls="min-h-screen w-screen flex flex-col justify-center items-center", hx_boost="true")(
                 Div(cls="max-w-[960px]")(
                     Div(cls="uk-card uk-card-default uk-card-body mt-2")(
                         Div(cls="border rounded p-2 bg-muted text-foreground")(
-                            "No files to label found. Mount a volume to /data/files with text files to label."
+                            "No files to label found. Mount a volume to /data with text files to label."
                         )
                     )
                 )
@@ -186,8 +186,8 @@ def get(idx: int):
     def prev_shortcut(): return Script("window.addEventListener('keydown', function(e) {if (e.key === 'ArrowLeft') {window.location.href = '/label/" + str(idx - 1) + "'}})")
     
     return (
-        Div(cls="h-screen w-screen flex flex-col justify-center items-center", hx_boost="true")(
-            Div(cls="max-w-[960px]")(
+        Div(cls="min-h-screen flex flex-col justify-center items-center", hx_boost="true")(
+            Div(cls="max-w-[960px] mt-2")(
                 get_stats(idx, files, results),
                 Div(cls="uk-card uk-card-default uk-card-body mt-2")(
                     Div(cls="grid grid-cols-2 gap-4")(
