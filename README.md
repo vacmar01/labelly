@@ -22,25 +22,26 @@ An example `labels.json` file can be found here:
 
 ```json
 {
-    "Examination": [
-        "Normal",
-        "Abnormal",
-        "Unsure"
-    ],
-    "Bleeding": [
-        "None",
-        "Mild",
-        "Moderate",
-        "Severe"
-    ],
-    "MassEffect": [
-        "None",
-        "Mild",
-        "Moderate",
-        "Severe"
-    ]
+    "Examination": {
+        "options": [
+            "Normal",
+            "Abnormal",
+            "Unsure"
+        ]
+    },
+    "Intervention": {
+        "type": "multiple",
+        "options": [
+            "None",
+            "Medication",
+            "Surgery",
+            "Other"
+        ]
+    }
 }
 ```
+
+Each key represents a label group named after the key. The `type` specifies if it's a multi-label or single-label label group or not (defaults to single-label label group). The options specify the different options the label can have. 
 
 The results will be written into a `data/results.csv` file. 
 
@@ -52,11 +53,7 @@ Swap out `$(pwd)/data` for a proper path to your data on your local machine. The
 
 ## Roadmap
 
-This is a very early proof of concept. Here are some things I want to improve in the future:
-
-- [ ] Support csv as file inputs
-- [ ] Support multiple labels of same label tag
-- [ ] Proper stats
+This is a very early proof of concept. Current todos can be found in [TODOS.md](/TODOS.md).
 
 ## Feedback
 

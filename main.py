@@ -1,9 +1,12 @@
+from typing import Literal
 from fasthtml.common import *
 import os
 import json
 import pandas as pd
 import fcntl
 from contextlib import contextmanager
+
+from pydantic import BaseModel, Field
 
 # File handling constants
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
@@ -45,24 +48,27 @@ def validate_idx(idx: int, max_idx: int) -> int:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
+class LabelGroup(BaseModel):
+    """Pydantic model for a single label group"""
+    type: Literal["single", "multiple"] = Field(default="single")
+    options: List[str]
+    
+class Labels(BaseModel):
+    """Pydantic model for the labels file"""
+    labels: dict[str, LabelGroup]
+    
 def safe_load_labels(filepath: str) -> Dict:
     """Safely load and validate labels file"""
     try:
         if not os.path.exists(filepath):
+            print(f"File {filepath} does not exist")
             return {}
             
         with open(filepath, 'r') as f:
             labels = json.load(f)
-            
-        if not isinstance(labels, dict):
-            raise ValueError("Labels must be a dictionary")
-            
-        # Validate structure
-        for key, values in labels.items():
-            if not isinstance(values, list):
-                raise ValueError(f"Values for {key} must be a list")
+            labels = Labels(labels=labels)
                 
-        return labels
+        return labels.labels
     except json.JSONDecodeError:
         trace(f"Invalid JSON in {filepath}")
         return {}
@@ -111,21 +117,23 @@ def preprocess_labels(labels: dict):
     """
     indexed_data = {}
     overall_index = 0
-    for key, values in labels.items():
+    for key,_ in labels.items():
         indexed_data[key] = []
-        for value in values:
-            indexed_data[key].append({"value": value, "overall_index": overall_index})
+        for o in labels[key].options:
+            indexed_data[key].append({
+                "value": o,
+                "overall_index": overall_index
+            })
             overall_index += 1
             
     return indexed_data
 
 if os.path.exists("data/labels.json"):
-    with open("data/labels.json", "r") as f:
-        labels = json.load(f)
+    raw_labels = safe_load_labels("data/labels.json")
+    preprocessed_labels = preprocess_labels(raw_labels)
     
-    labels = preprocess_labels(labels)
 else: 
-    labels = {}
+    preprocessed_labels = {}
     
     
 def get_stats(idx: int, files: list, results: pd.DataFrame):
@@ -162,7 +170,7 @@ def get(idx: int):
     def label_form(label: str, values: list):
         
         def determine_checked(label: str, value: list):
-            return len(results.loc[(results["file"] == files[idx]) & (results["label"] == label) & (results["value"] == value)]) > 0
+            return len(results.loc[(results["file"] == files[idx]) & (results["label"] == label) & results["value"].str.contains(value)]) > 0
         
         # create a variable shortcuts consisting of a list of all numbers from 1 to 9 and a to z
         shortcuts = [str(i) for i in range(1, 10)] + [chr(i) for i in range(97, 123)]
@@ -172,7 +180,7 @@ def get(idx: int):
                 H2(cls="font-bold text-xl")(label),
                 Form(cls="mt-2 flex flex-col gap-1", hx_post=f"/label/{idx}/{label}", hx_trigger="change changed", hx_target="#stats", hx_swap="outerHTML")(
                     *[Label(
-                        Input(type="radio", cls="uk-radio", name="label_value", id=f"input-{v['overall_index']}", value=v["value"], checked=determine_checked(label, v["value"])),
+                        Input(type="radio", cls="uk-radio", name="label_value", id=f"input-{v['overall_index']}", value=v["value"], checked=determine_checked(label, v["value"])) if raw_labels[label].type == "single" else Input(type="checkbox", cls="uk-checkbox", name="label_value", id=f"input-{v['overall_index']}", value=v["value"], checked=determine_checked(label, v["value"])),
                         v["value"],
                         " ",
                         Sup(shortcuts[v["overall_index"]]),
@@ -195,7 +203,7 @@ def get(idx: int):
                             text
                         ),
                         Div(cls="space-y-2")(
-                            *[label_form(label, values) for label, values in labels.items()]
+                            *[label_form(label, values) for label, values in preprocessed_labels.items()]
                         )
                     ),
                     Div(cls="flex justify-between items-center mt-8", hx_ext="preload")(
@@ -214,29 +222,30 @@ def get(idx: int):
     )
     
 @rt("/label/{idx}/{label}")
-def post(idx: int, label: str, label_value: str):
+async def post(req, idx: int, label: str, label_value: List[str] = None):
     try:
         idx = validate_idx(idx, len(files))
         
-        if label not in labels:
+        # Validate label exists
+        if label not in preprocessed_labels:
             raise HTTPException(status_code=400, detail=f"Invalid label: {label}")
             
-        valid_values = {v["value"] for v in labels[label]}
-        if label_value not in valid_values:
-            raise HTTPException(status_code=400, detail=f"Invalid label value: {label_value}")
+        # add multiple values to results as a comma separated string
+        label_value = ", ".join(label_value)
         
+        # Update or add new row
         global results
+        new_data = {"file": files[idx], "label": label, "value": label_value}
         mask = (results["file"] == files[idx]) & (results["label"] == label)
         
-        if mask.any(): #the label already exists, update it
+        # Remove existing rows for the same label if there is no form_data send with (usually when all checkboxes are unchecked after being checked before)
+        if label_value is None:
+            results = results.loc[~mask]
+        
+        if mask.any():
             results.loc[mask, "value"] = label_value
         else:
-            new_row = pd.DataFrame([{
-                "file": files[idx],
-                "label": label,
-                "value": label_value
-            }])
-            results = pd.concat([results, new_row], ignore_index=True)
+            results = pd.concat([results, pd.DataFrame([new_data])], ignore_index=True)
         
         if not safe_save_results(results, "data/results.csv"):
             raise HTTPException(status_code=500, detail="Failed to save results")
@@ -244,7 +253,6 @@ def post(idx: int, label: str, label_value: str):
         return get_stats(idx, files, results)
         
     except Exception as e:
-        trace(f"Error in post handler: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 serve(port=8000, reload=False)

@@ -7,6 +7,7 @@ name = "pypi"
 python-fasthtml = "*"
 pandas = "*"
 lucide-fasthtml = "*"
+pydantic = "*"
 
 [dev-packages]
 
