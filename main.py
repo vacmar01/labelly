@@ -152,8 +152,7 @@ def get():
 @rt("/label/{idx}")
 def get(idx: int):
     if os.path.exists("data/files") and len(files) > 0:
-        with open(f"data/files/{files[idx]}", "r") as f:
-            text = f.read()
+        text = safe_read_file(f"data/files/{files[idx]}")
     else: 
         return (
              Div(cls="min-h-screen w-screen flex flex-col justify-center items-center", hx_boost="true")(
@@ -167,9 +166,9 @@ def get(idx: int):
             )
         )
 
-    def label_form(label: str, values: list):
+    def label_form(label: str, values: list) -> FT:
         
-        def determine_checked(label: str, value: list):
+        def determine_checked(label: str, value: list) -> bool:
             return len(results.loc[(results["file"] == files[idx]) & (results["label"] == label) & results["value"].str.contains(value)]) > 0
         
         # create a variable shortcuts consisting of a list of all numbers from 1 to 9 and a to z
@@ -178,7 +177,8 @@ def get(idx: int):
         return (
             Div(
                 H2(cls="font-bold text-xl")(label),
-                Form(cls="mt-2 flex flex-col gap-1", hx_post=f"/label/{idx}/{label}", hx_trigger="change changed", hx_target="#stats", hx_swap="outerHTML")(
+                Form(cls="mt-2 flex flex-col gap-1", hx_post=f"/label/{idx}", hx_trigger="change changed", hx_target="#stats", hx_swap="outerHTML")(
+                    Hidden(id="label", value=label),
                     *[Label(
                         Input(type="radio", cls="uk-radio", name="label_value", id=f"input-{v['overall_index']}", value=v["value"], checked=determine_checked(label, v["value"])) if raw_labels[label].type == "single" else Input(type="checkbox", cls="uk-checkbox", name="label_value", id=f"input-{v['overall_index']}", value=v["value"], checked=determine_checked(label, v["value"])),
                         v["value"],
@@ -221,7 +221,7 @@ def get(idx: int):
         
     )
     
-@rt("/label/{idx}/{label}")
+@rt("/label/{idx}")
 async def post(req, idx: int, label: str, label_value: List[str] = None):
     try:
         idx = validate_idx(idx, len(files))

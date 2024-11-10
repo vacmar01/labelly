@@ -4,4 +4,5 @@
 - [ ] multiple projects
 - [ ] conditional labels
 - [ ] default labels
+- [ ] show only one label group at a time and cycle through it with buttons or when the user labelled a label group
 - [x] fix layout
