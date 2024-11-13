@@ -1,4 +1,4 @@
-- [ ] Support csv as file inputs
+- [x] Support csv as file inputs
 - [x] Support multiple labels of same label tag
 - [ ] Proper stat/landing page
 - [ ] multiple projects

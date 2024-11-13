@@ -14,7 +14,17 @@ Clone the GitHub repo and run `docker build -t labelly .`
 
 ## How to add your data
 
-`Labelly` expects a `/data` folder in the root path with the text files to label in `data/files`. An example of a proper `data` folder can be found in `_example_data`.
+### Text to label
+
+`Labelly` expects a `/data` folder in the root path with the text files to label in `data/files`. 
+
+Alternatively, you can providefile called `input.csv` with the data to label. `Labelly` expects to have `input.csv` to have a `text` column at least. 
+
+An `id` column is optional and will be created with the row number as the id when missing. 
+
+An example of a proper `data` folder can be found in `_example_data`.
+
+### Labels
 
 Additionally you have to your define your labels in a `labels.json` file in the `data` folder. 
 
